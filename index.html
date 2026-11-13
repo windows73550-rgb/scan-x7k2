@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>Dokumenten-Scanner</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Scanner">
+<style>
+:root{--bg:#0f1115;--panel:#171a21;--panel2:#232733;--line:#2b303d;--text:#eef1f6;--mute:#98a1b1;--acc:#4f8cff;--bad:#ef4444;--ok:#22c55e}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{display:flex;flex-direction:column;height:100dvh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+header h1{font-size:18px;margin:0;font-weight:650;flex:1;display:flex;align-items:center;gap:8px}
+.badge{background:var(--panel2);color:var(--mute);font-size:13px;padding:4px 10px;border-radius:999px}
+.view{flex:1;display:none;flex-direction:column;min-height:0}
+.view.on{display:flex}
+.scroll{flex:1;overflow:auto;padding:16px}
+.bar{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--line);background:var(--panel)}
+button{font:inherit;border:0;border-radius:12px;padding:13px 14px;background:var(--panel2);color:var(--text);font-weight:600;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+button:active{transform:scale(.97)}
+button.pri{background:var(--acc);color:#fff}
+button.grow{flex:1}
+button:disabled{opacity:.4;pointer-events:none}
+button.sm{padding:9px 12px;font-size:14px;border-radius:10px}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:24px;color:var(--mute)}
+.empty .ico{font-size:56px}
+.empty h2{color:var(--text);margin:0;font-size:20px}
+.empty p{margin:0;max-width:320px;line-height:1.45;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.card{background:var(--panel);border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.card img{width:100%;height:190px;object-fit:contain;display:block;background:#0a0b0e;cursor:pointer}
+.card .meta{display:flex;align-items:center;gap:2px;padding:6px}
+.card .meta span{flex:1;font-size:13px;color:var(--mute);padding-left:4px}
+.ib{padding:7px 9px;border-radius:8px;background:transparent;font-size:15px}
+.ib.warn{background:var(--bad);color:#fff;font-size:12px}
+.stage{flex:1;position:relative;min-height:0;background:#000;overflow:hidden}
+#ecv{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+#loupe{position:absolute;top:12px;left:12px;width:130px;height:130px;border-radius:50%;border:3px solid #fff;box-shadow:0 4px 18px rgba(0,0,0,.6);display:none;pointer-events:none;background:#000}
+#fstage{display:flex;align-items:center;justify-content:center;padding:12px}
+#fstage canvas{max-width:100%;max-height:100%;box-shadow:0 4px 24px rgba(0,0,0,.6);background:#fff}
+.tools,.chips{display:flex;gap:8px;padding:10px 16px;overflow-x:auto;background:var(--panel);border-top:1px solid var(--line)}
+.chip{padding:9px 15px;border-radius:999px;background:var(--panel2);font-size:14px}
+.chip.on{background:var(--acc);color:#fff}
+.hint{font-size:13px;color:var(--mute);padding:8px 16px 0;background:var(--panel);text-align:center}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.modal.on{display:flex}
+.sheet{background:var(--panel);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+.sheet h3{margin:0 0 2px;font-size:17px}
+label{font-size:13px;color:var(--mute);display:flex;flex-direction:column;gap:6px}
+input[type=text],select{font:inherit;font-size:16px;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);width:100%}
+.row{display:flex;gap:10px}
+#busy{position:fixed;inset:0;background:rgba(10,11,14,.75);display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:40;font-size:15px}
+#busy.on{display:flex}
+.spin{width:42px;height:42px;border-radius:50%;border:4px solid #2b303d;border-top-color:var(--acc);animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#fff;color:#111;padding:11px 16px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;transition:.25s;z-index:50;pointer-events:none;max-width:90vw;text-align:center}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+input[type=file]{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>📄 Scanner</h1>
+  <span class="badge" id="count">0 Seiten</span>
+</header>
+
+<!-- Übersicht -->
+<section class="view on" id="vList">
+  <div class="empty" id="emptyState">
+    <div class="ico">📷</div>
+    <h2>Dokument scannen</h2>
+    <p>Fotografiere ein Dokument. Die Kanten werden automatisch erkannt, das Bild wird gerade gezogen und gesäubert. Am Ende speicherst du alles als PDF.</p>
+    <p><b>Tipp:</b> Leg das Papier auf einen dunklen Untergrund, dann klappt die Kantenerkennung am besten.</p>
+  </div>
+  <div class="scroll" id="listWrap" style="display:none"><div class="grid" id="grid"></div></div>
+  <div class="bar">
+    <button class="pri grow" id="btnCam">📷 Scannen</button>
+    <button class="grow" id="btnGal">🖼️ Galerie</button>
+    <button class="grow" id="btnExport" disabled>💾 Speichern</button>
+  </div>
+</section>
+
+<!-- Ecken bearbeiten -->
+<section class="view" id="vEdit">
+  <div class="stage"><canvas id="ecv"></canvas><canvas id="loupe"></canvas></div>
+  <div class="hint">Ziehe die Punkte auf die Ecken des Dokuments</div>
+  <div class="tools">
+    <button class="sm" id="btnRot">↻ Drehen</button>
+    <button class="sm" id="btnAuto">✨ Auto-Ecken</button>
+    <button class="sm" id="btnFull">⬜ Ganzes Bild</button>
+  </div>
+  <div class="bar">
+    <button class="grow" id="btnEditCancel">Abbrechen</button>
+    <button class="pri grow" id="btnEditNext">Weiter →</button>
+  </div>
+</section>
+
+<!-- Filter -->
+<section class="view" id="vFilter">
+  <div class="stage" id="fstage"></div>
+  <div class="chips" id="chips"></div>
+  <div class="bar">
+    <button class="grow" id="btnFilterBack">← Ecken</button>
+    <button class="pri grow" id="btnFilterDone">✓ Fertig</button>
+  </div>
+</section>
+
+<!-- Speichern -->
+<div class="modal" id="mExport">
+  <div class="sheet">
+    <h3>Speichern</h3>
+    <label>Dateiname<input type="text" id="fname" autocomplete="off"></label>
+    <label>Seitenformat
+      <select id="fmt">
+        <option value="a4">A4 (Bild eingepasst)</option>
+        <option value="img">An Bild angepasst</option>
+      </select>
+    </label>
+    <button class="pri" id="btnPdf">📄 Als PDF speichern</button>
+    <div class="row">
+      <button class="grow" id="btnJpg">🖼️ Als JPG-Bilder</button>
+      <button class="grow" id="btnShare" style="display:none">📤 Teilen</button>
+    </div>
+    <div class="row">
+      <button class="grow" id="btnClear">🗑️ Alle löschen</button>
+      <button class="grow" id="btnCloseExport">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="camIn" accept="image/*" capture="environment">
+<input type="file" id="galIn" accept="image/*" multiple>
+<div id="busy"><div class="spin"></div><div id="busyTxt">Wird verarbeitet …</div></div>
+<div id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+const $ = s => document.querySelector(s);
+const MAX_SRC = 2400;   // max. Kantenlänge des Originalfotos
+const MAX_OUT = 2200;   // max. Kantenlänge der gescannten Seite
+const FILTERS = [["clean","✨ Dokument"],["gray","Graustufen"],["bw","Schwarz-Weiß"],["original","Original"]];
+
+const pages = [];   // {src, srcBlob, corners, filter, blob, url, w, h}
+
+/* ---------- Dauerhafte Speicherung (IndexedDB) ---------- */
+let dbP = null;
+function db(){
+  if (!dbP) dbP = new Promise((res, rej) => {
+    try {
+      const r = indexedDB.open("scanner", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("kv");
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    } catch (e) { rej(e); }
+  });
+  return dbP;
+}
+async function persist(){
+  try {
+    const d = await db();
+    const data = pages.map(p => ({ srcBlob: p.srcBlob, corners: p.corners, filter: p.filter, blob: p.blob, w: p.w, h: p.h }));
+    await new Promise((res, rej) => { const t = d.transaction("kv", "readwrite"); t.objectStore("kv").put(data, "pages"); t.oncomplete = res; t.onerror = () => rej(t.error); });
+  } catch (e) { /* Speicherung nicht verfügbar */ }
+}
+async function restore(){
+  try {
+    const d = await db();
+    const data = await new Promise((res, rej) => { const r = d.transaction("kv").objectStore("kv").get("pages"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    if (Array.isArray(data)) data.forEach(p => { if (p && p.blob) pages.push({ ...p, src: null, url: URL.createObjectURL(p.blob) }); });
+  } catch (e) { /* nichts */ }
+  renderList();
+}
+let cur = null;     // {src, corners, filter, index, warped, out}
+
+/* ---------- UI-Helfer ---------- */
+function show(id){
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === id));
+  if (id === "vEdit") requestAnimationFrame(drawEdit);
+}
+let toastT;
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2600);
+}
+function busy(on, txt){
+  $("#busyTxt").textContent = txt || "Wird verarbeitet …";
+  $("#busy").classList.toggle("on", !!on);
+}
+const paint = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 20)));
+const mk = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+const ctx2d = c => c.getContext("2d", { willReadFrequently: true });
+
+/* ---------- Bild laden ---------- */
+async function loadFile(file){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image(); img.src = url; await img.decode();
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const s = Math.min(1, MAX_SRC / Math.max(w, h));
+    const c = mk(Math.round(w * s), Math.round(h * s));
+    const x = ctx2d(c); x.imageSmoothingQuality = "high";
+    x.drawImage(img, 0, 0, c.width, c.height);
+    return c;
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* ---------- Automatische Kantenerkennung ---------- */
+function boxBlur(src, w, h, r){
+  const tmp = new Float32Array(w * h), out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++){
+    for (let x = 0; x < w; x++){
+      let s = 0, n = 0;
+      for (let k = -r; k <= r; k++){ const xx = x + k; if (xx >= 0 && xx < w){ s += src[y*w+xx]; n++; } }
+      tmp[y*w+x] = s / n;
+    }
+  }
+  for (let y = 0; y < h; y++){
+    for (let x = 0; x < w; x++){
+      let s = 0, n = 0;
+      for (let k = -r; k <= r; k++){ const yy = y + k; if (yy >= 0 && yy < h){ s += tmp[yy*w+x]; n++; } }
+      out[y*w+x] = s / n;
+    }
+  }
+  return out;
+}
+function defaultCorners(W, H){
+  const mx = W * 0.05, my = H * 0.05;
+  return [{x:mx,y:my},{x:W-mx,y:my},{x:W-mx,y:H-my},{x:mx,y:H-my}];
+}
+function polyArea(p){
+  let a = 0; for (let i = 0; i < p.length; i++){ const q = p[(i+1)%p.length]; a += p[i].x*q.y - q.x*p[i].y; }
+  return Math.abs(a / 2);
+}
+function detectCorners(src){
+  const W = src.width, H = src.height;
+  const s = Math.min(1, 320 / Math.max(W, H));
+  const w = Math.max(8, Math.round(W * s)), h = Math.max(8, Math.round(H * s));
+  const c = mk(w, h), x = ctx2d(c);
+  x.drawImage(src, 0, 0, w, h);
+  const d = x.getImageData(0, 0, w, h).data, N = w * h;
+  let g = new Float32Array(N);
+  for (let i = 0; i < N; i++) g[i] = d[i*4]*0.299 + d[i*4+1]*0.587 + d[i*4+2]*0.114;
+  g = boxBlur(boxBlur(g, w, h, 2), w, h, 2);
+  // Otsu-Schwellwert
+  const hist = new Array(256).fill(0);
+  for (let i = 0; i < N; i++) hist[Math.min(255, g[i] | 0)]++;
+  let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sB = 0, wB = 0, best = -1, t = 128;
+  for (let i = 0; i < 256; i++){
+    wB += hist[i]; if (!wB) continue;
+    const wF = N - wB; if (!wF) break;
+    sB += i * hist[i];
+    const mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF);
+    if (v > best){ best = v; t = i; }
+  }
+  // größte helle Fläche suchen
+  const mask = new Uint8Array(N);
+  for (let i = 0; i < N; i++) mask[i] = g[i] > t ? 1 : 0;
+  const stack = new Int32Array(N);
+  let bestC = null;
+  for (let i = 0; i < N; i++){
+    if (mask[i] !== 1) continue;
+    let sp = 0; stack[sp++] = i; mask[i] = 2;
+    let cnt = 0, tl, tr, br, bl, mnS = 1e9, mxS = -1e9, mnD = 1e9, mxD = -1e9;
+    while (sp){
+      const p = stack[--sp], px = p % w, py = (p / w) | 0;
+      cnt++;
+      const S = px + py, D = px - py;
+      if (S < mnS){ mnS = S; tl = {x:px,y:py}; }
+      if (S > mxS){ mxS = S; br = {x:px,y:py}; }
+      if (D > mxD){ mxD = D; tr = {x:px,y:py}; }
+      if (D < mnD){ mnD = D; bl = {x:px,y:py}; }
+      if (px > 0 && mask[p-1] === 1){ mask[p-1] = 2; stack[sp++] = p-1; }
+      if (px < w-1 && mask[p+1] === 1){ mask[p+1] = 2; stack[sp++] = p+1; }
+      if (py > 0 && mask[p-w] === 1){ mask[p-w] = 2; stack[sp++] = p-w; }
+      if (py < h-1 && mask[p+w] === 1){ mask[p+w] = 2; stack[sp++] = p+w; }
+    }
+    if (!bestC || cnt > bestC.cnt) bestC = {cnt, pts:[tl,tr,br,bl]};
+  }
+  if (!bestC || bestC.cnt < N * 0.08) return defaultCorners(W, H);
+  const pts = bestC.pts.map(p => ({ x: Math.min(W, Math.max(0, (p.x + 0.5) / s)), y: Math.min(H, Math.max(0, (p.y + 0.5) / s)) }));
+  if (polyArea(pts) < W * H * 0.08) return defaultCorners(W, H);
+  return pts;
+}
+
+/* ---------- Ecken-Editor ---------- */
+const ecv = $("#ecv"), lp = $("#loupe");
+let view = { s:1, ox:0, oy:0, w:0, h:0 }, drag = -1, dragOff = {x:0,y:0};
+const toScreen = p => ({ x: view.ox + p.x * view.s, y: view.oy + p.y * view.s });
+
+function drawEdit(){
+  if (!cur || !$("#vEdit").classList.contains("on")) return;
+  const r = ecv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (!r.width || !r.height) return;
+  ecv.width = Math.round(r.width * dpr); ecv.height = Math.round(r.height * dpr);
+  const c = ecv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.clearRect(0, 0, r.width, r.height);
+  const pad = 30, src = cur.src;
+  const s = Math.min((r.width - 2*pad) / src.width, (r.height - 2*pad) / src.height);
+  view = { s, ox:(r.width - src.width*s)/2, oy:(r.height - src.height*s)/2, w:r.width, h:r.height };
+  c.drawImage(src, view.ox, view.oy, src.width*s, src.height*s);
+  const P = cur.corners.map(toScreen);
+  c.beginPath(); c.rect(0, 0, r.width, r.height);
+  c.moveTo(P[0].x, P[0].y); for (let i = 1; i < 4; i++) c.lineTo(P[i].x, P[i].y); c.closePath();
+  c.fillStyle = "rgba(0,0,0,.5)"; c.fill("evenodd");
+  c.beginPath(); c.moveTo(P[0].x, P[0].y); for (let i = 1; i < 4; i++) c.lineTo(P[i].x, P[i].y); c.closePath();
+  c.strokeStyle = "#4f8cff"; c.lineWidth = 2.5; c.stroke();
+  P.forEach((p, i) => {
+    c.beginPath(); c.arc(p.x, p.y, i === drag ? 17 : 13, 0, Math.PI*2);
+    c.fillStyle = "rgba(79,140,255,.35)"; c.fill();
+    c.lineWidth = 3; c.strokeStyle = "#fff"; c.stroke();
+  });
+}
+function drawLoupe(i){
+  const size = 130, dpr = window.devicePixelRatio || 1, zoom = 3;
+  lp.width = size * dpr; lp.height = size * dpr;
+  const c = lp.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const p = cur.corners[i], rw = size / (view.s * zoom);
+  c.fillStyle = "#000"; c.fillRect(0, 0, size, size);
+  c.drawImage(cur.src, p.x - rw/2, p.y - rw/2, rw, rw, 0, 0, size, size);
+  c.strokeStyle = "#4f8cff"; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(size/2, 0); c.lineTo(size/2, size); c.moveTo(0, size/2); c.lineTo(size, size/2); c.stroke();
+  const sp = toScreen(p);
+  const right = sp.x < view.w / 2 && sp.y < 190;
+  lp.style.left = right ? "auto" : "12px"; lp.style.right = right ? "12px" : "auto";
+  lp.style.display = "block";
+}
+function evPos(e){ const r = ecv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+ecv.addEventListener("pointerdown", e => {
+  if (!cur) return;
+  const m = evPos(e); let bi = -1, bd = 48;
+  cur.corners.forEach((p, i) => { const s = toScreen(p), d = Math.hypot(s.x - m.x, s.y - m.y); if (d < bd){ bd = d; bi = i; } });
+  if (bi < 0) return;
+  drag = bi; const s = toScreen(cur.corners[bi]); dragOff = { x: s.x - m.x, y: s.y - m.y };
+  ecv.setPointerCapture(e.pointerId); drawEdit(); drawLoupe(bi); e.preventDefault();
+});
+ecv.addEventListener("pointermove", e => {
+  if (drag < 0) return;
+  const m = evPos(e);
+  const x = (m.x + dragOff.x - view.ox) / view.s, y = (m.y + dragOff.y - view.oy) / view.s;
+  cur.corners[drag] = { x: Math.min(cur.src.width, Math.max(0, x)), y: Math.min(cur.src.height, Math.max(0, y)) };
+  drawEdit(); drawLoupe(drag); e.preventDefault();
+});
+const endDrag = () => { if (drag < 0) return; drag = -1; lp.style.display = "none"; drawEdit(); };
+ecv.addEventListener("pointerup", endDrag);
+ecv.addEventListener("pointercancel", endDrag);
+window.addEventListener("resize", () => drawEdit());
+
+function rotateSrc(){
+  const o = cur.src, H = o.height;
+  const n = mk(o.height, o.width), x = n.getContext("2d");
+  x.translate(n.width, 0); x.rotate(Math.PI / 2); x.drawImage(o, 0, 0);
+  const r = p => ({ x: H - p.y, y: p.x });
+  const c = cur.corners;
+  cur.src = n; cur.srcBlob = null; cur.corners = [r(c[3]), r(c[0]), r(c[1]), r(c[2])];
+  drawEdit();
+}
+
+/* ---------- Entzerren (Perspektive) ---------- */
+function squareToQuad(q){
+  const [p0, p1, p2, p3] = q;
+  const dx1 = p1.x - p2.x, dx2 = p3.x - p2.x, dx3 = p0.x - p1.x + p2.x - p3.x;
+  const dy1 = p1.y - p2.y, dy2 = p3.y - p2.y, dy3 = p0.y - p1.y + p2.y - p3.y;
+  if (Math.abs(dx3) < 1e-9 && Math.abs(dy3) < 1e-9){
+    return { a:p1.x-p0.x, b:p2.x-p1.x, c:p0.x, d:p1.y-p0.y, e:p2.y-p1.y, f:p0.y, g:0, h:0 };
+  }
+  const den = dx1 * dy2 - dy1 * dx2;
+  const g = (dx3 * dy2 - dy3 * dx2) / den, h = (dx1 * dy3 - dy1 * dx3) / den;
+  return { a:p1.x-p0.x+g*p1.x, b:p3.x-p0.x+h*p3.x, c:p0.x, d:p1.y-p0.y+g*p1.y, e:p3.y-p0.y+h*p3.y, f:p0.y, g, h };
+}
+function warp(src, q){
+  const [p0, p1, p2, p3] = q, dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  let ow = Math.max(dist(p0, p1), dist(p3, p2)), oh = Math.max(dist(p0, p3), dist(p1, p2));
+  const k = Math.min(1, MAX_OUT / Math.max(ow, oh));
+  ow = Math.max(2, Math.round(ow * k)); oh = Math.max(2, Math.round(oh * k));
+  const M = squareToQuad(q);
+  const SW = src.width, SH = src.height, S = ctx2d(src).getImageData(0, 0, SW, SH).data;
+  const out = mk(ow, oh), oc = out.getContext("2d"), od = oc.createImageData(ow, oh), O = od.data;
+  const maxX = SW - 1.001, maxY = SH - 1.001, row = SW * 4;
+  let o = 0;
+  for (let y = 0; y < oh; y++){
+    const v = (y + 0.5) / oh;
+    for (let x = 0; x < ow; x++){
+      const u = (x + 0.5) / ow, z = M.g*u + M.h*v + 1;
+      let sx = (M.a*u + M.b*v + M.c) / z - 0.5, sy = (M.d*u + M.e*v + M.f) / z - 0.5;
+      if (sx < 0) sx = 0; else if (sx > maxX) sx = maxX;
+      if (sy < 0) sy = 0; else if (sy > maxY) sy = maxY;
+      const x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0;
+      const i00 = y0 * row + x0 * 4, i10 = i00 + 4, i01 = i00 + row, i11 = i01 + 4;
+      const w00 = (1-fx)*(1-fy), w10 = fx*(1-fy), w01 = (1-fx)*fy, w11 = fx*fy;
+      O[o]   = S[i00]*w00   + S[i10]*w10   + S[i01]*w01   + S[i11]*w11;
+      O[o+1] = S[i00+1]*w00 + S[i10+1]*w10 + S[i01+1]*w01 + S[i11+1]*w11;
+      O[o+2] = S[i00+2]*w00 + S[i10+2]*w10 + S[i01+2]*w01 + S[i11+2]*w11;
+      O[o+3] = 255; o += 4;
+    }
+  }
+  oc.putImageData(od, 0, 0);
+  return out;
+}
+
+/* ---------- Filter ---------- */
+function dilate(id, w, h){
+  const s = id.data, out = new ImageData(w, h), d = out.data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
+    const i = (y*w + x) * 4;
+    for (let ch = 0; ch < 3; ch++){
+      let m = 0;
+      for (let yy = Math.max(0, y-1); yy <= Math.min(h-1, y+1); yy++)
+        for (let xx = Math.max(0, x-1); xx <= Math.min(w-1, x+1); xx++){
+          const v = s[(yy*w + xx)*4 + ch]; if (v > m) m = v;
+        }
+      d[i+ch] = m;
+    }
+    d[i+3] = 255;
+  }
+  return out;
+}
+function background(cv){
+  const w = cv.width, h = cv.height;
+  const sw = Math.max(4, Math.round(w / 28)), sh = Math.max(4, Math.round(h / 28));
+  const sm = mk(sw, sh), sx = ctx2d(sm);
+  sx.imageSmoothingEnabled = true; sx.imageSmoothingQuality = "high";
+  sx.drawImage(cv, 0, 0, sw, sh);
+  let id = sx.getImageData(0, 0, sw, sh);
+  id = dilate(dilate(id, sw, sh), sw, sh);
+  sx.putImageData(id, 0, 0);
+  const big = mk(w, h), bx = ctx2d(big);
+  bx.imageSmoothingEnabled = true; bx.imageSmoothingQuality = "high";
+  bx.drawImage(sm, 0, 0, w, h);
+  return bx.getImageData(0, 0, w, h).data;
+}
+function applyFilter(src, f){
+  const w = src.width, h = src.height, out = mk(w, h), x = ctx2d(out);
+  x.drawImage(src, 0, 0);
+  if (f === "original") return out;
+  const id = x.getImageData(0, 0, w, h), D = id.data, B = background(src);
+  const gamma = f === "clean" ? 1.45 : 1.7, lut = new Uint8ClampedArray(256);
+  for (let i = 0; i < 256; i++) lut[i] = 255 * Math.pow(i / 255, gamma);
+  for (let i = 0; i < D.length; i += 4){
+    let r = D[i] * 255 / Math.max(B[i], 1), g = D[i+1] * 255 / Math.max(B[i+1], 1), b = D[i+2] * 255 / Math.max(B[i+2], 1);
+    if (r > 255) r = 255; if (g > 255) g = 255; if (b > 255) b = 255;
+    if (f === "clean"){
+      D[i] = lut[r|0]; D[i+1] = lut[g|0]; D[i+2] = lut[b|0];
+    } else {
+      const l = 0.299*r + 0.587*g + 0.114*b;
+      let v;
+      if (f === "gray") v = lut[l|0];
+      else v = l >= 200 ? 255 : l <= 145 ? 0 : (l - 145) * 255 / 55;
+      D[i] = D[i+1] = D[i+2] = v;
+    }
+  }
+  x.putImageData(id, 0, 0);
+  return out;
+}
+const toBlob = (c, q) => new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("JPEG fehlgeschlagen")), "image/jpeg", q));
+
+/* ---------- Ablauf ---------- */
+function startEdit(src, index, corners, filter, srcBlob){
+  cur = { src, index, srcBlob: srcBlob || null, corners: corners ? corners.map(p => ({...p})) : detectCorners(src), filter: filter || "clean" };
+  show("vEdit");
+}
+function renderChips(){
+  const box = $("#chips"); box.innerHTML = "";
+  FILTERS.forEach(([k, label]) => {
+    const b = document.createElement("button");
+    b.className = "chip" + (cur.filter === k ? " on" : ""); b.textContent = label;
+    b.onclick = async () => { if (cur.filter === k) return; cur.filter = k; busy(true, "Filter …"); await paint(); renderFilter(); busy(false); };
+    box.appendChild(b);
+  });
+}
+function renderFilter(){
+  cur.out = applyFilter(cur.warped, cur.filter);
+  const st = $("#fstage"); st.innerHTML = ""; st.appendChild(cur.out);
+  renderChips();
+}
+async function makePage(src, corners, filter){
+  const warped = warp(src, corners), out = applyFilter(warped, filter);
+  const blob = await toBlob(out, filter === "bw" ? 0.82 : 0.88);
+  const srcBlob = await toBlob(src, 0.92);
+  return { src, srcBlob, corners, filter, blob, url: URL.createObjectURL(blob), w: out.width, h: out.height };
+}
+
+$("#btnCam").onclick = () => { $("#camIn").value = ""; $("#camIn").click(); };
+$("#btnGal").onclick = () => { $("#galIn").value = ""; $("#galIn").click(); };
+
+$("#camIn").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  busy(true, "Kanten werden erkannt …"); await paint();
+  try { const src = await loadFile(f); startEdit(src, null); }
+  catch (err) { toast("Bild konnte nicht geladen werden"); }
+  busy(false);
+};
+$("#galIn").onchange = async e => {
+  const files = [...e.target.files]; if (!files.length) return;
+  if (files.length === 1){
+    busy(true, "Kanten werden erkannt …"); await paint();
+    try { startEdit(await loadFile(files[0]), null); } catch (err) { toast("Bild konnte nicht geladen werden"); }
+    busy(false); return;
+  }
+  let ok = 0;
+  for (let i = 0; i < files.length; i++){
+    busy(true, `Seite ${i+1} von ${files.length} …`); await paint();
+    try { const src = await loadFile(files[i]); pages.push(await makePage(src, detectCorners(src), "clean")); ok++; }
+    catch (err) { /* überspringen */ }
+  }
+  busy(false); renderList();
+  toast(`${ok} Seite${ok === 1 ? "" : "n"} hinzugefügt – zum Nachbessern antippen`);
+};
+
+$("#btnRot").onclick = rotateSrc;
+$("#btnAuto").onclick = () => { cur.corners = detectCorners(cur.src); drawEdit(); };
+$("#btnFull").onclick = () => { const W = cur.src.width, H = cur.src.height; cur.corners = [{x:0,y:0},{x:W,y:0},{x:W,y:H},{x:0,y:H}]; drawEdit(); };
+$("#btnEditCancel").onclick = () => { cur = null; show("vList"); };
+$("#btnEditNext").onclick = async () => {
+  busy(true, "Wird entzerrt …"); await paint();
+  try { cur.warped = warp(cur.src, cur.corners); renderFilter(); show("vFilter"); }
+  catch (err) { toast("Fehler beim Entzerren"); }
+  busy(false);
+};
+$("#btnFilterBack").onclick = () => show("vEdit");
+$("#btnFilterDone").onclick = async () => {
+  busy(true, "Seite wird gespeichert …"); await paint();
+  try {
+    const blob = await toBlob(cur.out, cur.filter === "bw" ? 0.82 : 0.88);
+    if (!cur.srcBlob) cur.srcBlob = await toBlob(cur.src, 0.92);
+    const pg = { src: cur.src, srcBlob: cur.srcBlob, corners: cur.corners.map(p => ({...p})), filter: cur.filter, blob, url: URL.createObjectURL(blob), w: cur.out.width, h: cur.out.height };
+    if (cur.index == null) pages.push(pg);
+    else { URL.revokeObjectURL(pages[cur.index].url); pages[cur.index] = pg; }
+    cur = null; renderList(); show("vList");
+    toast(`Seite ${pages.length} von ${pages.length} gespeichert`);
+  } catch (err) { toast("Fehler beim Speichern der Seite"); }
+  busy(false);
+};
+
+/* ---------- Seitenliste ---------- */
+function renderList(){
+  const n = pages.length;
+  $("#count").textContent = n + (n === 1 ? " Seite" : " Seiten");
+  $("#emptyState").style.display = n ? "none" : "flex";
+  $("#listWrap").style.display = n ? "block" : "none";
+  $("#btnExport").disabled = !n;
+  const grid = $("#grid"); grid.innerHTML = "";
+  pages.forEach((p, i) => {
+    const card = document.createElement("div"); card.className = "card";
+    const img = document.createElement("img"); img.src = p.url; img.alt = "Seite " + (i+1);
+    img.onclick = async () => {
+      if (!p.src){
+        busy(true, "Seite wird geladen …"); await paint();
+        try { p.src = await loadFile(p.srcBlob); } catch (e) { busy(false); toast("Original nicht verfügbar"); return; }
+        busy(false);
+      }
+      startEdit(p.src, i, p.corners, p.filter, p.srcBlob);
+    };
+    const meta = document.createElement("div"); meta.className = "meta";
+    const lab = document.createElement("span"); lab.textContent = "Seite " + (i+1);
+    const bL = btn("◀", () => { if (i > 0){ [pages[i-1], pages[i]] = [pages[i], pages[i-1]]; renderList(); } }); bL.disabled = i === 0;
+    const bR = btn("▶", () => { if (i < n-1){ [pages[i+1], pages[i]] = [pages[i], pages[i+1]]; renderList(); } }); bR.disabled = i === n-1;
+    const bD = btn("🗑️", () => {
+      if (!bD.classList.contains("warn")){ bD.classList.add("warn"); bD.textContent = "Löschen?"; setTimeout(() => { bD.classList.remove("warn"); bD.textContent = "🗑️"; }, 3000); return; }
+      URL.revokeObjectURL(p.url); pages.splice(i, 1); renderList();
+    });
+    meta.append(lab, bL, bR, bD); card.append(img, meta); grid.appendChild(card);
+  });
+  persist();
+}
+function btn(txt, fn){ const b = document.createElement("button"); b.className = "ib"; b.textContent = txt; b.onclick = fn; return b; }
+
+/* ---------- PDF erzeugen (ohne Bibliothek) ---------- */
+function jpegComponents(u8){
+  for (let i = 2; i < u8.length - 9; ){
+    if (u8[i] !== 0xFF){ i++; continue; }
+    const m = u8[i+1];
+    if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) return u8[i+9];
+    const len = (u8[i+2] << 8) | u8[i+3]; i += 2 + len;
+  }
+  return 3;
+}
+async function buildPDF(fmt){
+  const enc = new TextEncoder(), parts = [], offs = [];
+  let len = 0;
+  const push = v => { const b = typeof v === "string" ? enc.encode(v) : v; parts.push(b); len += b.length; };
+  const num = v => (Math.round(v * 100) / 100).toString();
+  const obj = (id, body) => { offs[id] = len; push(id + " 0 obj\n" + body + "\nendobj\n"); };
+  const n = pages.length, total = 2 + 3 * n;
+  push("%PDF-1.4\n"); push(new Uint8Array([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]));
+  obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2, `<< /Type /Pages /Kids [${pages.map((_, i) => (3 + 3*i) + " 0 R").join(" ")}] /Count ${n} >>`);
+  for (let i = 0; i < n; i++){
+    const p = pages[i], jpg = new Uint8Array(await p.blob.arrayBuffer());
+    const land = p.w > p.h;
+    let pw, ph;
+    if (fmt === "a4"){ pw = land ? 841.89 : 595.28; ph = land ? 595.28 : 841.89; }
+    else if (land){ ph = 595.28; pw = ph * p.w / p.h; }
+    else { pw = 595.28; ph = pw * p.h / p.w; }
+    const s = Math.min(pw / p.w, ph / p.h), dw = p.w * s, dh = p.h * s, dx = (pw - dw) / 2, dy = (ph - dh) / 2;
+    const pg = 3 + 3*i, im = pg + 1, ct = pg + 2;
+    const cs = jpegComponents(jpg) === 1 ? "/DeviceGray" : "/DeviceRGB";
+    obj(pg, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(pw)} ${num(ph)}] /Resources << /XObject << /Im${i} ${im} 0 R >> >> /Contents ${ct} 0 R >>`);
+    offs[im] = len;
+    push(`${im} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace ${cs} /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`);
+    push(jpg); push("\nendstream\nendobj\n");
+    const content = `q ${num(dw)} 0 0 ${num(dh)} ${num(dx)} ${num(dy)} cm /Im${i} Do Q`;
+    obj(ct, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  }
+  const xref = len;
+  let t = `xref\n0 ${total + 1}\n0000000000 65535 f \n`;
+  for (let id = 1; id <= total; id++) t += String(offs[id]).padStart(10, "0") + " 00000 n \n";
+  t += `trailer\n<< /Size ${total + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  push(t);
+  return new Blob(parts, { type: "application/pdf" });
+}
+
+/* ---------- Speichern ---------- */
+let dlPromise = null;
+function getDownloads(){
+  if (!dlPromise){
+    dlPromise = (window.claude && typeof window.claude.use === "function")
+      ? Promise.race([window.claude.use("downloads"), new Promise(r => setTimeout(() => r(null), 10000))]).catch(() => null)
+      : Promise.resolve(null);
+  }
+  return dlPromise;
+}
+const inClaude = () => !!(window.claude && typeof window.claude.use === "function");
+async function saveFile(blob, name){
+  const dl = await getDownloads();
+  if (dl){
+    try { await dl.save({ filename: name, data: blob }); toast("Gespeichert: " + name); return true; }
+    catch (e) {
+      if (e && e.code === "declined") toast("Speichern abgebrochen");
+      else toast("Speichern nicht möglich" + (e && e.message ? ": " + e.message : ""));
+      return false;
+    }
+  }
+  if (inClaude()){ toast("Speichern ist hier gerade nicht verfügbar"); return false; }
+  const url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast("Gespeichert: " + name);
+  return true;
+}
+function baseName(){
+  const v = ($("#fname").value || "").trim().replace(/\.pdf$/i, "").replace(/[\\/:*?"<>|]+/g, "_");
+  return v || defaultName();
+}
+function defaultName(){
+  const d = new Date(), z = n => String(n).padStart(2, "0");
+  return `Scan_${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}`;
+}
+
+$("#btnExport").onclick = () => {
+  $("#fname").value = defaultName();
+  $("#btnShare").style.display = (!inClaude() && navigator.canShare) ? "" : "none";
+  $("#mExport").classList.add("on");
+};
+$("#btnCloseExport").onclick = () => $("#mExport").classList.remove("on");
+$("#mExport").addEventListener("click", e => { if (e.target.id === "mExport") $("#mExport").classList.remove("on"); });
+$("#btnPdf").onclick = async () => {
+  busy(true, "PDF wird erstellt …"); await paint();
+  let blob;
+  try { blob = await buildPDF($("#fmt").value); } catch (e) { busy(false); toast("PDF konnte nicht erstellt werden"); return; }
+  busy(false);
+  if (await saveFile(blob, baseName() + ".pdf")) $("#mExport").classList.remove("on");
+};
+$("#btnJpg").onclick = async () => {
+  const b = baseName();
+  for (let i = 0; i < pages.length; i++){
+    const ok = await saveFile(pages[i].blob, pages.length > 1 ? `${b}_S${i+1}.jpg` : `${b}.jpg`);
+    if (!ok) return;
+  }
+  $("#mExport").classList.remove("on");
+};
+$("#btnShare").onclick = async () => {
+  try {
+    const blob = await buildPDF($("#fmt").value);
+    const file = new File([blob], baseName() + ".pdf", { type: "application/pdf" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: baseName() });
+    else toast("Teilen wird hier nicht unterstützt");
+  } catch (e) { if (e && e.name !== "AbortError") toast("Teilen fehlgeschlagen"); }
+};
+$("#btnClear").onclick = function(){
+  const b = this;
+  if (!b.classList.contains("armed")){ b.classList.add("armed"); b.style.background = "var(--bad)"; b.textContent = "Wirklich alle löschen?"; setTimeout(() => { b.classList.remove("armed"); b.style.background = ""; b.textContent = "🗑️ Alle löschen"; }, 3000); return; }
+  pages.forEach(p => URL.revokeObjectURL(p.url)); pages.length = 0;
+  b.classList.remove("armed"); b.style.background = ""; b.textContent = "🗑️ Alle löschen";
+  $("#mExport").classList.remove("on"); renderList(); toast("Alle Seiten gelöscht");
+};
+
+restore();
+setTimeout(() => { if (inClaude()) getDownloads(); }, 600);
+if ("serviceWorker" in navigator && location.protocol === "https:" && !inClaude()){
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+})();
+</script>
+</body>
+</html>
