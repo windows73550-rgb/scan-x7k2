@@ -1,1 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!-- Scanner-Icon v2 --><rect width="512" height="512" fill="#4f8cff"/><rect x="171" y="136" width="170" height="240" rx="18" fill="#fff"/><g fill="#4f8cff"><rect x="199" y="184" width="114" height="13" rx="6.5"/><rect x="199" y="218" width="114" height="13" rx="6.5"/><rect x="199" y="252" width="114" height="13" rx="6.5"/><rect x="199" y="286" width="114" height="13" rx="6.5"/><rect x="199" y="320" width="74" height="13" rx="6.5"/></g><g stroke="#0f1115" stroke-width="13" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M136 176v-46h46M376 176v-46h-46M136 336v46h46M376 336v46h-46"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14001f"/><stop offset="1" stop-color="#2a0040"/></linearGradient>
+<linearGradient id="n" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff2bd6"/><stop offset="1" stop-color="#2bd9ff"/></linearGradient>
+<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10"/></filter></defs>
+<rect width="512" height="512" fill="url(#bg)"/>
+<g stroke="#ff2bd6" stroke-width="2" opacity=".35"><path d="M0 400H512M0 432H512M0 470H512M256 380L60 512M256 380L452 512M256 380L180 512M256 380L332 512"/></g>
+<g fill="none" stroke="url(#n)" stroke-width="14" stroke-linejoin="round" stroke-linecap="round">
+<path d="M180 104h110l52 52v204H180z" filter="url(#glow)"/>
+<path d="M180 104h110l52 52v204H180z"/>
+<path d="M290 104v52h52"/>
+<path d="M214 206h94M214 246h94M214 286h60"/>
+</g>
+</svg>
